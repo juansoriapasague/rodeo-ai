@@ -4,11 +4,12 @@ export const config = {
 
 export default async function handler(req, res) {
 
-  // ✅ CORS HEADERS
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // === CORS HEADERS ===
+  res.setHeader("Access-Control-Allow-Origin", "https://rodeoshop.dk");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
+  // Handle preflight
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -75,9 +76,9 @@ Return ONLY a JSON array.
 
     const handles = JSON.parse(match[0]);
 
-    const recommended = Array.isArray(products)
-      ? products.filter(p => handles.includes(p.handle))
-      : [];
+    const recommended = products.filter(p =>
+      handles.includes(p.handle)
+    );
 
     return res.status(200).json({
       success: true,
@@ -87,7 +88,7 @@ Return ONLY a JSON array.
   } catch (err) {
     return res.status(500).json({
       error: "Server crash",
-      details: err.message
+      message: err.message
     });
   }
 }
