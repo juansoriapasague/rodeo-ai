@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/recommend.js": {
+      "runtime": "nodejs18.x"
+    }
+  }
+}
