@@ -14,6 +14,10 @@ export default async function handler(req, res) {
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
+    }
+
     const profile = Object.entries(answers)
       .map(([k,v]) => `${k}: ${v}`)
       .join("\n");
@@ -25,14 +29,20 @@ Customer profile:
 ${profile}
 
 Available products:
-${JSON.stringify(products, null, 2)}
+${JSON.stringify(products.map(p=>({
+  title:p.title,
+  handle:p.handle,
+  description:p.description
+})), null, 2)}
 
-Select the 4 most suitable products.
+Select the 4 most suitable product handles.
 
-Return ONLY valid JSON.
+IMPORTANT:
+Return ONLY a pure JSON array.
 No explanation.
+No text.
 Only this format:
-["handle-1","handle-2"]
+["handle-1","handle-2","handle-3","handle-4"]
 `;
 
     const geminiRes = await fetch(
@@ -41,27 +51,42 @@ Only this format:
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
+          contents: [{
+            parts: [{ text: prompt }]
+          }]
         })
       }
     );
 
     const geminiData = await geminiRes.json();
 
-    const aiText =
-      geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!geminiRes.ok) {
+      return res.status(500).json({
+        error: "Gemini API error",
+        details: geminiData
+      });
+    }
 
-    if (!aiText) {
-      return res.status(500).json({ error: "Gemini failed" });
+    let aiText =
+      geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    // 🔥 Extract JSON safely even if Gemini adds extra text
+    const jsonMatch = aiText.match(/\[.*\]/s);
+
+    if (!jsonMatch) {
+      return res.status(500).json({
+        error: "AI did not return valid JSON",
+        raw: aiText
+      });
     }
 
     let handles;
 
     try {
-      handles = JSON.parse(aiText);
-    } catch {
+      handles = JSON.parse(jsonMatch[0]);
+    } catch (err) {
       return res.status(500).json({
-        error: "Invalid JSON from AI",
+        error: "JSON parse failed",
         raw: aiText
       });
     }
@@ -77,6 +102,9 @@ Only this format:
 
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: "Server error" });
+    return res.status(500).json({
+      error: "Server error",
+      details: err.message
+    });
   }
 }
