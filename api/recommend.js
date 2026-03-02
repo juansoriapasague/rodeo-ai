@@ -1,10 +1,12 @@
 export default async function handler(req, res) {
 
-  // --- CORS ---
+  // ===== CORS HEADERS =====
   res.setHeader("Access-Control-Allow-Origin", "https://rodeoshop.dk");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Max-Age", "86400");
 
+  // ===== HANDLE PREFLIGHT FIRST =====
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -17,7 +19,15 @@ export default async function handler(req, res) {
 
     const { answers, products } = req.body;
 
+    if (!answers || !products) {
+      return res.status(400).json({ error: "Missing data" });
+    }
+
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({ error: "Missing API key" });
+    }
 
     const profile = Object.entries(answers)
       .map(([k,v]) => `${k}: ${v}`)
@@ -51,6 +61,10 @@ Return ONLY a JSON array.
     );
 
     const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(500).json(data);
+    }
 
     const aiText =
       data.candidates?.[0]?.content?.parts?.[0]?.text || "";
