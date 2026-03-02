@@ -4,16 +4,18 @@ export const config = {
 
 export default async function handler(req, res) {
 
-  // === CORS HEADERS ===
+  // ===== ALWAYS SET CORS FIRST =====
   res.setHeader("Access-Control-Allow-Origin", "https://rodeoshop.dk");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Max-Age", "86400");
 
-  // Handle preflight
+  // ===== HANDLE PREFLIGHT IMMEDIATELY =====
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
+  // ===== ONLY AFTER PREFLIGHT =====
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
