@@ -1,21 +1,14 @@
-export const config = {
-  runtime: "nodejs"
-};
-
 export default async function handler(req, res) {
 
-  // ===== ALWAYS SET CORS FIRST =====
+  // --- CORS ---
   res.setHeader("Access-Control-Allow-Origin", "https://rodeoshop.dk");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Max-Age", "86400");
 
-  // ===== HANDLE PREFLIGHT IMMEDIATELY =====
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
-  // ===== ONLY AFTER PREFLIGHT =====
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -23,10 +16,6 @@ export default async function handler(req, res) {
   try {
 
     const { answers, products } = req.body;
-
-    if (!answers || !products) {
-      return res.status(400).json({ error: "Missing data" });
-    }
 
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -63,20 +52,12 @@ Return ONLY a JSON array.
 
     const data = await response.json();
 
-    if (!response.ok) {
-      return res.status(500).json(data);
-    }
-
     const aiText =
       data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     const match = aiText.match(/\[.*\]/s);
 
-    if (!match) {
-      return res.status(500).json({ error: "Invalid AI output", raw: aiText });
-    }
-
-    const handles = JSON.parse(match[0]);
+    const handles = match ? JSON.parse(match[0]) : [];
 
     const recommended = products.filter(p =>
       handles.includes(p.handle)
@@ -89,8 +70,7 @@ Return ONLY a JSON array.
 
   } catch (err) {
     return res.status(500).json({
-      error: "Server crash",
-      message: err.message
+      error: err.message
     });
   }
 }
