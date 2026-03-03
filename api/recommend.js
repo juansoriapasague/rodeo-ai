@@ -1,12 +1,16 @@
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
 export default async function handler(req, res) {
 
-  // ===== CORS HEADERS =====
+  // ===== CORS =====
   res.setHeader("Access-Control-Allow-Origin", "https://rodeoshop.dk");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Max-Age", "86400");
 
-  // ===== HANDLE PREFLIGHT FIRST =====
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -21,12 +25,6 @@ export default async function handler(req, res) {
 
     if (!answers || !products) {
       return res.status(400).json({ error: "Missing data" });
-    }
-
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-    if (!GEMINI_API_KEY) {
-      return res.status(500).json({ error: "Missing API key" });
     }
 
     const profile = Object.entries(answers)
@@ -44,33 +42,23 @@ ${JSON.stringify(products, null, 2)}
 
 Select the 4 best product handles.
 
-Return ONLY a JSON array.
+Return ONLY a valid JSON array.
+Example:
+["product-handle-1","product-handle-2"]
 `;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: prompt }]
-          }]
-        })
-      }
-    );
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are a haircare product expert." },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.7
+    });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return res.status(500).json(data);
-    }
-
-    const aiText =
-      data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const aiText = completion.choices[0].message.content;
 
     const match = aiText.match(/\[.*\]/s);
-
     const handles = match ? JSON.parse(match[0]) : [];
 
     const recommended = products.filter(p =>
@@ -82,9 +70,9 @@ Return ONLY a JSON array.
       products: recommended
     });
 
-  } catch (err) {
+  } catch (error) {
     return res.status(500).json({
-      error: err.message
+      error: error.message
     });
   }
 }
